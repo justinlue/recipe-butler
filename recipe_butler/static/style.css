@@ -187,6 +187,9 @@ main { overflow-y: auto; padding: 1.2rem 2rem 3rem; }
 
 .errors { background: var(--error-bg); border-radius: var(--radius); padding: 0.4rem 0.8rem; margin: 0.5rem 0; }
 .errors ul { margin: 0; padding-left: 1.1rem; }
+.banner { display: flex; align-items: center; gap: 0.8rem; padding: 0 1rem; background: var(--error-bg); }
+.banner[hidden] { display: none; }
+.banner .errors { flex: 1; }
 .notice { background: var(--notice-bg); border-radius: var(--radius); padding: 0.5rem 0.8rem; margin-bottom: 0.8rem; max-width: 900px; }
 
 .dish-form { max-width: 760px; }

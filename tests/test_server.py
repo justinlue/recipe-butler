@@ -123,3 +123,54 @@ def test_static_traversal_blocked(api_server):
 def test_index_served(api_server):
     status, headers, _ = request(api_server.server_address[1], "GET", "/")
     assert status == 200 and headers["Content-Type"].startswith("text/html")
+
+
+def test_idle_connection_does_not_block_other_requests(api_server):
+    # Browsers open speculative connections that never send a request.
+    import socket
+    port = api_server.server_address[1]
+    with socket.create_connection(("127.0.0.1", port)):
+        status, _, _ = request(port, "GET", "/api/ping")
+    assert status == 200
+
+
+def _raw(port, method, path, headers):
+    import http.client
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    conn.request(method, path, body=b"" if method != "GET" else None, headers=headers)
+    resp = conn.getresponse()
+    status = resp.status
+    resp.read()
+    conn.close()
+    return status
+
+
+def test_cross_site_simple_post_is_rejected(api_server, api):
+    # A page on another site can send text/plain POSTs without a CORS preflight.
+    port = api_server.server_address[1]
+    status = _raw(port, "POST", "/api/dishes/seed%3Apancakes/hide",
+                  {"Content-Type": "text/plain", "Origin": "http://evil.example"})
+    assert status in (403, 415)
+    assert _raw(port, "POST", "/api/dishes/seed%3Apancakes/hide", {}) == 415
+    assert not api("GET", "/api/dishes/seed%3Apancakes")[1]["hidden"]
+
+
+def test_foreign_origin_rejected_even_with_json(api_server, api):
+    port = api_server.server_address[1]
+    status = _raw(port, "POST", "/api/dishes/seed%3Apancakes/hide",
+                  {"Content-Type": "application/json", "Origin": "http://evil.example"})
+    assert status == 403
+    assert not api("GET", "/api/dishes/seed%3Apancakes")[1]["hidden"]
+
+
+def test_same_origin_post_allowed(api_server):
+    port = api_server.server_address[1]
+    assert _raw(port, "POST", "/api/dishes/seed%3Apancakes/hide",
+                {"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{port}"}) == 200
+
+
+def test_foreign_host_header_rejected(api_server):
+    # DNS rebinding: a hostile name resolving to 127.0.0.1 must not read user data.
+    port = api_server.server_address[1]
+    assert _raw(port, "GET", "/api/export", {"Host": f"evil.example:{port}"}) == 403
+    assert _raw(port, "GET", "/api/ping", {"Host": f"localhost:{port}"}) == 200

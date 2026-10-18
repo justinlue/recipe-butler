@@ -6,7 +6,7 @@ import json
 import sys
 import traceback
 from datetime import date
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -23,6 +23,14 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; c
 
 class BadRequest(Exception):
     pass
+
+
+class Refused(Exception):
+    """Request blocked to protect user data from other web pages; carries the HTTP status."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
 
 
 def _view_json(view: DishView, notes: list[Note]) -> dict:
@@ -57,6 +65,7 @@ def _note_id(segment: str) -> int:
 
 class Handler(BaseHTTPRequestHandler):
     catalog: Catalog  # set on the subclass made by make_server
+    timeout = 10  # drop idle connections (browsers open speculative ones) instead of holding a thread forever
 
     # -- plumbing ------------------------------------------------------------
 
@@ -92,9 +101,29 @@ class Handler(BaseHTTPRequestHandler):
             raise BadRequest("Request body must be a JSON object.")
         return data
 
+    def _check_caller(self) -> None:
+        """Only this app's own page may talk to the server.
+
+        Host guards against DNS rebinding; requiring a JSON content type forces a CORS preflight (which this
+        server never approves) on cross-site writes, and a foreign Origin is refused outright.
+        """
+        port = self.server.server_address[1]
+        local = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        host = self.headers.get("Host")
+        if host is not None and host.strip().lower() not in local:
+            raise Refused(403, "Unknown host.")
+        if self.command in ("GET", "HEAD"):
+            return
+        origin = self.headers.get("Origin")
+        if origin is not None and origin.strip().lower() not in {f"http://{h}" for h in local}:
+            raise Refused(403, "Requests from other sites are not allowed.")
+        if not (self.headers.get("Content-Type") or "").lower().startswith("application/json"):
+            raise Refused(415, "Requests must be sent as application/json.")
+
     def _dispatch(self) -> None:
         url = urlsplit(self.path)
         try:
+            self._check_caller()
             if url.path.startswith("/api/"):
                 segments = [unquote(s) for s in url.path[len("/api/"):].split("/")]
                 self._api(segments, parse_qs(url.query))
@@ -102,6 +131,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._static(url.path)
             else:
                 raise NotFound(url.path)
+        except Refused as e:
+            self._error(e.status, "refused", [str(e)])
         except BadRequest as e:
             self._error(400, "bad_request", [str(e)])
         except ValidationError as e:
@@ -174,6 +205,9 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, target.read_bytes(), content_type)
 
 
-def make_server(catalog: Catalog, port: int, host: str = "127.0.0.1") -> HTTPServer:
+def make_server(catalog: Catalog, port: int, host: str = "127.0.0.1") -> ThreadingHTTPServer:
+    # Threaded so one idle browser connection cannot stall every other request; Store serializes DB access.
     handler = type("RecipeHandler", (Handler,), {"catalog": catalog})
-    return HTTPServer((host, port), handler)
+    server = ThreadingHTTPServer((host, port), handler)
+    server.daemon_threads = True
+    return server

@@ -33,7 +33,9 @@ def find_running(lock: Path, timeout: float = 1.0) -> int | None:
         port = json.loads(lock.read_text(encoding="utf-8"))["port"]
         if not isinstance(port, int):
             return None
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=timeout) as resp:
+        # No proxy: a system proxy without a localhost bypass would hide the running server.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(f"http://127.0.0.1:{port}/api/ping", timeout=timeout) as resp:
             if json.loads(resp.read().decode("utf-8")) == {"app": "recipe-butler"}:
                 return port
     except Exception:

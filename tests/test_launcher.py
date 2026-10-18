@@ -92,3 +92,13 @@ def test_main_reuses_running_server(monkeypatch, tmp_path, api_server, capsys):
     assert launcher.main([]) == 0
     assert opened == [f"http://127.0.0.1:{port}/"]
     assert "already running" in capsys.readouterr().out
+
+
+def test_find_running_ignores_system_proxy(monkeypatch, tmp_path, api_server):
+    # A proxy without a localhost bypass must not hide the running server.
+    monkeypatch.setenv("HTTP_PROXY", f"http://127.0.0.1:{free_unused_port()}")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    lock = tmp_path / "server.lock"
+    write_lock(lock, api_server.server_address[1])
+    assert find_running(lock) == api_server.server_address[1]

@@ -23,19 +23,32 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
+function apiError(messages) {
+  const error = new Error(messages.join(" "));
+  error.messages = messages;
+  return error;
+}
+
 async function api(method, path, body) {
   const options = { method, headers: {} };
-  if (body !== undefined) {
+  if (method !== "GET") {
+    // The server only accepts writes sent as JSON (this keeps other web pages from changing your data).
     options.headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify(body);
+    options.body = JSON.stringify(body === undefined ? {} : body);
   }
-  const response = await fetch(path, options);
-  const data = await response.json();
-  if (!response.ok) {
-    const error = new Error((data.messages || ["Request failed."]).join(" "));
-    error.messages = data.messages || ["Request failed."];
-    throw error;
+  let response;
+  try {
+    response = await fetch(path, options);
+  } catch {
+    throw apiError(["Cannot reach Recipe Butler — is it still running?"]);
   }
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw apiError([`Unexpected reply from the server (HTTP ${response.status}).`]);
+  }
+  if (!response.ok) throw apiError(data.messages || ["Request failed."]);
   return data;
 }
 
@@ -68,6 +81,15 @@ function errorBox(messages) {
 
 function notice(text) {
   return h("div", { class: "notice", role: "status", text });
+}
+
+// Errors from actions without their own error area go to a dismissible banner, so they never
+// replace what is on screen (such as a half-filled form).
+function showBanner(messages) {
+  const banner = document.getElementById("banner");
+  banner.replaceChildren(errorBox(messages),
+    h("button", { type: "button", class: "small", text: "Dismiss", onclick: () => { banner.hidden = true; } }));
+  banner.hidden = false;
 }
 
 // -- sidebar: dish list -------------------------------------------------------
@@ -117,7 +139,13 @@ async function runSearch(event) {
   event.preventDefault();
   const q = document.getElementById("search-input").value;
   const out = document.getElementById("search-results");
-  const result = await api("GET", "/api/search?q=" + encodeURIComponent(q));
+  let result;
+  try {
+    result = await api("GET", "/api/search?q=" + encodeURIComponent(q));
+  } catch (error) {
+    out.replaceChildren(errorBox(error.messages || [error.message]));
+    return;
+  }
   if (result.terms.length === 0) {
     out.replaceChildren(h("p", { class: "hint", text: "Type at least one ingredient." }));
     return;
@@ -404,7 +432,7 @@ function start() {
   });
   window.addEventListener("unhandledrejection", (event) => {
     const error = event.reason || {};
-    showMain(errorBox(error.messages || [error.message || "Something went wrong."]));
+    showBanner(error.messages || [error.message || "Something went wrong."]);
   });
   loadDishes();
 }

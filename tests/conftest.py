@@ -28,7 +28,7 @@ def request(port, method, path, body=None, raw=None):
     """Returns (status, headers, body bytes); HTTP errors are returned, not raised."""
     data = raw if raw is not None else (json.dumps(body).encode("utf-8") if body is not None else None)
     req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=data, method=method)
-    if data is not None:
+    if method != "GET":
         req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:
