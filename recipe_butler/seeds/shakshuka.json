@@ -1,0 +1,48 @@
+{
+  "name": "Shakshuka",
+  "category": "Breakfast",
+  "servings": 2,
+  "total_minutes": 30,
+  "description": "Eggs poached in a spiced tomato and pepper sauce.",
+  "ingredients": [
+    {
+      "name": "eggs",
+      "amount": "4"
+    },
+    {
+      "name": "canned tomatoes",
+      "amount": "400 g (1 can)"
+    },
+    {
+      "name": "onion",
+      "amount": "1"
+    },
+    {
+      "name": "garlic",
+      "amount": "2 cloves"
+    },
+    {
+      "name": "cumin",
+      "amount": "1 tsp"
+    },
+    {
+      "name": "bell pepper",
+      "amount": "1"
+    },
+    {
+      "name": "olive oil",
+      "amount": "2 tbsp"
+    },
+    {
+      "name": "salt",
+      "amount": "to taste"
+    }
+  ],
+  "steps": [
+    "Soften the sliced onion and pepper in olive oil for 8 minutes.",
+    "Add the garlic and cumin and cook for 1 minute.",
+    "Add the tomatoes, season and simmer for 10 minutes until thick.",
+    "Make four wells, crack in the eggs, cover and cook until the whites set.",
+    "Serve straight from the pan with bread."
+  ]
+}

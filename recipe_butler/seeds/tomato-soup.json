@@ -1,0 +1,38 @@
+{
+  "name": "Tomato Soup",
+  "category": "Soups",
+  "servings": 4,
+  "total_minutes": 40,
+  "description": "Smooth, creamy tomato soup.",
+  "ingredients": [
+    {
+      "name": "tomatoes",
+      "amount": "1 kg"
+    },
+    {
+      "name": "onion",
+      "amount": "1"
+    },
+    {
+      "name": "garlic",
+      "amount": "2 cloves"
+    },
+    {
+      "name": "vegetable stock",
+      "amount": "500 ml"
+    },
+    {
+      "name": "cream",
+      "amount": "100 ml"
+    },
+    {
+      "name": "olive oil",
+      "amount": "2 tbsp"
+    }
+  ],
+  "steps": [
+    "Soften the chopped onion and garlic in olive oil.",
+    "Add the chopped tomatoes and stock and simmer for 25 minutes.",
+    "Blend until smooth, stir in the cream and season to taste."
+  ]
+}

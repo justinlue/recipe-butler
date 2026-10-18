@@ -1,0 +1,43 @@
+{
+  "name": "Fluffy Pancakes",
+  "category": "Breakfast",
+  "servings": 4,
+  "total_minutes": 25,
+  "description": "Thick, fluffy American-style pancakes.",
+  "ingredients": [
+    {
+      "name": "flour",
+      "amount": "200 g"
+    },
+    {
+      "name": "milk",
+      "amount": "300 ml"
+    },
+    {
+      "name": "eggs",
+      "amount": "2"
+    },
+    {
+      "name": "baking powder",
+      "amount": "2 tsp"
+    },
+    {
+      "name": "butter",
+      "amount": "2 tbsp, melted"
+    },
+    {
+      "name": "sugar",
+      "amount": "1 tbsp"
+    },
+    {
+      "name": "salt",
+      "amount": "a pinch"
+    }
+  ],
+  "steps": [
+    "Whisk the flour, baking powder, sugar and salt in a bowl.",
+    "Whisk the milk, eggs and melted butter, then stir into the dry mix until just combined.",
+    "Rest the batter for 5 minutes.",
+    "Cook ladlefuls on a buttered pan until bubbles form, then flip and cook 1 minute more."
+  ]
+}

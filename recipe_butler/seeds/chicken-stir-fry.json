@@ -1,0 +1,48 @@
+{
+  "name": "Chicken Stir-Fry",
+  "category": "Mains",
+  "servings": 3,
+  "total_minutes": 25,
+  "description": "Quick weeknight stir-fry with peppers, ginger and soy.",
+  "ingredients": [
+    {
+      "name": "chicken breast",
+      "amount": "500 g, sliced"
+    },
+    {
+      "name": "soy sauce",
+      "amount": "3 tbsp"
+    },
+    {
+      "name": "garlic",
+      "amount": "3 cloves"
+    },
+    {
+      "name": "ginger",
+      "amount": "1 thumb"
+    },
+    {
+      "name": "bell pepper",
+      "amount": "2"
+    },
+    {
+      "name": "vegetable oil",
+      "amount": "1 tbsp"
+    },
+    {
+      "name": "cornstarch",
+      "amount": "1 tsp"
+    },
+    {
+      "name": "rice",
+      "amount": "to serve"
+    }
+  ],
+  "steps": [
+    "Toss the chicken with 1 tbsp soy sauce and the cornstarch.",
+    "Stir-fry the chicken in hot oil until browned, then remove it.",
+    "Stir-fry the sliced peppers with the garlic and ginger for 2 minutes.",
+    "Return the chicken, add the remaining soy sauce and toss until glossy.",
+    "Serve over rice."
+  ]
+}

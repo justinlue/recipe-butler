@@ -1,0 +1,42 @@
+{
+  "name": "Greek Salad",
+  "category": "Salads",
+  "servings": 4,
+  "total_minutes": 15,
+  "description": "Chunky tomato, cucumber and feta salad.",
+  "ingredients": [
+    {
+      "name": "tomatoes",
+      "amount": "4"
+    },
+    {
+      "name": "cucumber",
+      "amount": "1"
+    },
+    {
+      "name": "red onion",
+      "amount": "1/2"
+    },
+    {
+      "name": "feta",
+      "amount": "200 g"
+    },
+    {
+      "name": "olives",
+      "amount": "1 handful"
+    },
+    {
+      "name": "olive oil",
+      "amount": "4 tbsp"
+    },
+    {
+      "name": "dried oregano",
+      "amount": "1 tsp"
+    }
+  ],
+  "steps": [
+    "Cut the tomatoes and cucumber into chunks and thinly slice the onion.",
+    "Combine in a bowl with the olives.",
+    "Lay the feta on top, sprinkle with oregano and drizzle with olive oil."
+  ]
+}

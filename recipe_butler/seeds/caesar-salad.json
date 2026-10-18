@@ -1,0 +1,47 @@
+{
+  "name": "Caesar Salad",
+  "category": "Salads",
+  "servings": 2,
+  "total_minutes": 20,
+  "description": "Crisp romaine with a garlicky parmesan dressing and croutons.",
+  "ingredients": [
+    {
+      "name": "romaine lettuce",
+      "amount": "1 head"
+    },
+    {
+      "name": "parmesan",
+      "amount": "40 g, grated"
+    },
+    {
+      "name": "croutons",
+      "amount": "2 cups"
+    },
+    {
+      "name": "garlic",
+      "amount": "1 clove"
+    },
+    {
+      "name": "lemon",
+      "amount": "1/2"
+    },
+    {
+      "name": "egg yolk",
+      "amount": "1"
+    },
+    {
+      "name": "olive oil",
+      "amount": "4 tbsp"
+    },
+    {
+      "name": "anchovy fillets",
+      "amount": "2"
+    }
+  ],
+  "steps": [
+    "Mash the garlic and anchovies into a paste.",
+    "Whisk in the egg yolk and lemon juice, then slowly whisk in the olive oil.",
+    "Stir in half the parmesan.",
+    "Toss the torn lettuce with the dressing and croutons, and finish with the remaining parmesan."
+  ]
+}

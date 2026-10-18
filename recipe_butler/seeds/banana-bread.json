@@ -1,0 +1,43 @@
+{
+  "name": "Banana Bread",
+  "category": "Baking",
+  "servings": 10,
+  "total_minutes": 75,
+  "description": "Moist loaf made with very ripe bananas.",
+  "ingredients": [
+    {
+      "name": "ripe bananas",
+      "amount": "3"
+    },
+    {
+      "name": "flour",
+      "amount": "190 g"
+    },
+    {
+      "name": "sugar",
+      "amount": "150 g"
+    },
+    {
+      "name": "eggs",
+      "amount": "2"
+    },
+    {
+      "name": "butter",
+      "amount": "115 g, melted"
+    },
+    {
+      "name": "baking soda",
+      "amount": "1 tsp"
+    },
+    {
+      "name": "salt",
+      "amount": "a pinch"
+    }
+  ],
+  "steps": [
+    "Heat the oven to 175 °C and line a loaf tin.",
+    "Mash the bananas and mix in the melted butter, sugar and eggs.",
+    "Fold in the flour, baking soda and salt until just combined.",
+    "Bake for 55–60 minutes until a skewer comes out clean, then cool before slicing."
+  ]
+}

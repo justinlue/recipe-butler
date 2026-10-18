@@ -1,0 +1,31 @@
+{
+  "name": "French Omelette",
+  "category": "Breakfast",
+  "servings": 1,
+  "total_minutes": 5,
+  "description": "A soft, pale, rolled omelette.",
+  "ingredients": [
+    {
+      "name": "eggs",
+      "amount": "3"
+    },
+    {
+      "name": "butter",
+      "amount": "1 tbsp"
+    },
+    {
+      "name": "chives",
+      "amount": "1 tsp, snipped"
+    },
+    {
+      "name": "salt",
+      "amount": "a pinch"
+    }
+  ],
+  "steps": [
+    "Beat the eggs with the salt until fully combined.",
+    "Melt the butter in a nonstick pan over medium-low heat until foaming.",
+    "Add the eggs and stir constantly with a spatula while shaking the pan until softly set.",
+    "Roll the omelette onto a plate seam-side down and top with chives."
+  ]
+}

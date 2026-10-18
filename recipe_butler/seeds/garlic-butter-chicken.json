@@ -1,0 +1,40 @@
+{
+  "name": "Garlic Butter Chicken",
+  "category": "Mains",
+  "servings": 4,
+  "total_minutes": 35,
+  "description": "Crisp-skinned chicken thighs finished in garlic butter.",
+  "ingredients": [
+    {
+      "name": "chicken thighs",
+      "amount": "8"
+    },
+    {
+      "name": "butter",
+      "amount": "3 tbsp"
+    },
+    {
+      "name": "garlic",
+      "amount": "6 cloves"
+    },
+    {
+      "name": "parsley",
+      "amount": "2 tbsp, chopped"
+    },
+    {
+      "name": "salt",
+      "amount": "to taste"
+    },
+    {
+      "name": "black pepper",
+      "amount": "to taste"
+    }
+  ],
+  "steps": [
+    "Pat the chicken dry and season well with salt and pepper.",
+    "Sear skin-side down in a hot pan for 8–10 minutes until crisp, then flip.",
+    "Cook another 10 minutes until cooked through.",
+    "Lower the heat, add the butter and minced garlic, and baste the chicken for 2 minutes.",
+    "Scatter with parsley and serve with the pan butter."
+  ]
+}

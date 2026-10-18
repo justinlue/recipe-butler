@@ -1,0 +1,38 @@
+{
+  "name": "Guacamole",
+  "category": "Sides",
+  "servings": 4,
+  "total_minutes": 10,
+  "description": "Chunky avocado dip with lime and jalapeño.",
+  "ingredients": [
+    {
+      "name": "avocado",
+      "amount": "3 ripe"
+    },
+    {
+      "name": "lime",
+      "amount": "1"
+    },
+    {
+      "name": "red onion",
+      "amount": "1/4, finely diced"
+    },
+    {
+      "name": "jalapeño",
+      "amount": "1, finely diced"
+    },
+    {
+      "name": "cilantro",
+      "amount": "1 small handful"
+    },
+    {
+      "name": "salt",
+      "amount": "to taste"
+    }
+  ],
+  "steps": [
+    "Mash the avocados roughly with a fork.",
+    "Stir in the lime juice, onion, jalapeño and chopped cilantro.",
+    "Season with salt and serve right away."
+  ]
+}

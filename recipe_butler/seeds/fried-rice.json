@@ -1,0 +1,39 @@
+{
+  "name": "Egg Fried Rice",
+  "category": "Mains",
+  "servings": 2,
+  "total_minutes": 15,
+  "description": "Day-old rice fried with egg, peas and green onion.",
+  "ingredients": [
+    {
+      "name": "cooked rice",
+      "amount": "3 cups"
+    },
+    {
+      "name": "eggs",
+      "amount": "2"
+    },
+    {
+      "name": "soy sauce",
+      "amount": "2 tbsp"
+    },
+    {
+      "name": "green onion",
+      "amount": "3 stalks"
+    },
+    {
+      "name": "peas",
+      "amount": "1/2 cup"
+    },
+    {
+      "name": "vegetable oil",
+      "amount": "2 tbsp"
+    }
+  ],
+  "steps": [
+    "Heat the oil in a wok until shimmering.",
+    "Scramble the eggs until just set and push them aside.",
+    "Add the rice and peas and stir-fry until the rice is hot and slightly crisp.",
+    "Season with soy sauce, fold in the egg and sliced green onion, and serve."
+  ]
+}

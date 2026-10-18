@@ -1,0 +1,43 @@
+{
+  "name": "Chicken Noodle Soup",
+  "category": "Soups",
+  "servings": 4,
+  "total_minutes": 45,
+  "description": "Comforting soup with chicken, vegetables and egg noodles.",
+  "ingredients": [
+    {
+      "name": "chicken breast",
+      "amount": "2"
+    },
+    {
+      "name": "egg noodles",
+      "amount": "150 g"
+    },
+    {
+      "name": "carrot",
+      "amount": "2"
+    },
+    {
+      "name": "celery",
+      "amount": "2 stalks"
+    },
+    {
+      "name": "onion",
+      "amount": "1"
+    },
+    {
+      "name": "chicken stock",
+      "amount": "1.5 l"
+    },
+    {
+      "name": "bay leaf",
+      "amount": "1"
+    }
+  ],
+  "steps": [
+    "Simmer the chicken breasts in the stock with the bay leaf for 20 minutes, then remove and shred.",
+    "Add the diced onion, carrot and celery to the stock and simmer for 10 minutes.",
+    "Add the noodles and cook until tender.",
+    "Return the chicken, season and serve."
+  ]
+}

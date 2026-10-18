@@ -1,0 +1,40 @@
+{
+  "name": "Spaghetti Pomodoro",
+  "category": "Pasta",
+  "servings": 4,
+  "total_minutes": 30,
+  "description": "Simple spaghetti in a garlicky fresh-basil tomato sauce.",
+  "ingredients": [
+    {
+      "name": "spaghetti",
+      "amount": "400 g"
+    },
+    {
+      "name": "canned tomatoes",
+      "amount": "800 g (2 cans)"
+    },
+    {
+      "name": "garlic",
+      "amount": "3 cloves"
+    },
+    {
+      "name": "olive oil",
+      "amount": "3 tbsp"
+    },
+    {
+      "name": "basil",
+      "amount": "1 handful"
+    },
+    {
+      "name": "salt",
+      "amount": "to taste"
+    }
+  ],
+  "steps": [
+    "Bring a large pot of salted water to a boil.",
+    "Warm the olive oil in a wide pan and gently fry the sliced garlic until fragrant, not brown.",
+    "Add the tomatoes, crush them with a spoon, season with salt and simmer for 15 minutes.",
+    "Cook the spaghetti until al dente and reserve a cup of pasta water.",
+    "Toss the pasta in the sauce with a splash of pasta water, then tear in the basil and serve."
+  ]
+}
