@@ -1,0 +1,9 @@
+[project]
+name = "recipe-butler"
+version = "0.1.0"
+description = "Offline recipe app: browse dishes, search by ingredient, notes, personal versions."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
