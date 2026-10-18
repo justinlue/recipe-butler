@@ -1,3 +1,45 @@
 <!doctype html>
-<meta charset="utf-8">
-<title>Recipe Butler</title>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recipe Butler</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Recipe Butler</h1>
+    <a class="button" id="export" href="/api/export" download>Export my data</a>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-dishes" aria-selected="true">Dishes</button>
+        <button type="button" role="tab" id="tab-search" aria-selected="false">By ingredient</button>
+      </div>
+
+      <section id="panel-dishes">
+        <input type="search" id="filter" placeholder="Filter by name" aria-label="Filter dishes by name">
+        <nav id="dish-list" aria-label="Dishes"></nav>
+        <label class="show-hidden"><input type="checkbox" id="show-hidden"> Show hidden</label>
+      </section>
+
+      <section id="panel-search" hidden>
+        <form id="search-form">
+          <input type="search" id="search-input" placeholder="e.g. chicken, garlic" aria-label="Ingredients">
+          <button type="submit">Search</button>
+        </form>
+        <p class="hint">Separate ingredients with commas. Dishes must contain all of them.</p>
+        <div id="search-results"></div>
+      </section>
+
+      <button type="button" class="primary new-dish" id="new-dish">+ New dish</button>
+    </aside>
+
+    <main id="main">
+      <div class="empty">Pick a dish on the left, or search by ingredient.</div>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
