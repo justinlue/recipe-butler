@@ -12,7 +12,7 @@ def test_ping(api):
 def test_list_and_get(api):
     status, dishes = api("GET", "/api/dishes")
     assert status == 200 and len(dishes) == 13
-    assert set(dishes[0]) == {"id", "name", "category", "source", "customized", "hidden"}
+    assert set(dishes[0]) == {"id", "name", "category", "source", "customized", "hidden", "rating", "total_minutes"}
     status, view = api("GET", "/api/dishes/seed%3Ashakshuka")
     assert status == 200
     assert view["dish"]["name"] == "Shakshuka" and view["customized"] is False and view["notes"] == []
@@ -174,3 +174,25 @@ def test_foreign_host_header_rejected(api_server):
     port = api_server.server_address[1]
     assert _raw(port, "GET", "/api/export", {"Host": f"evil.example:{port}"}) == 403
     assert _raw(port, "GET", "/api/ping", {"Host": f"localhost:{port}"}) == 200
+
+
+def test_rate_and_sort_dishes(api):
+    assert api("PUT", "/api/dishes/seed%3Aguacamole/rating", {"stars": 5}) == (200, {})
+    assert api("PUT", "/api/dishes/seed%3Apancakes/rating", {"stars": 3}) == (200, {})
+    assert api("GET", "/api/dishes/seed%3Aguacamole")[1]["rating"] == 5
+    _, dishes = api("GET", "/api/dishes?sort=rating")
+    assert [(d["id"], d["rating"]) for d in dishes[:3]] == [("seed:guacamole", 5), ("seed:pancakes", 3),
+                                                             (dishes[2]["id"], None)]
+    _, dishes = api("GET", "/api/dishes?sort=time")
+    minutes = [d["total_minutes"] for d in dishes]
+    assert minutes == sorted(minutes) and minutes[0] is not None
+    assert api("PUT", "/api/dishes/seed%3Aguacamole/rating", {"stars": None}) == (200, {})
+    assert api("GET", "/api/dishes/seed%3Aguacamole")[1]["rating"] is None
+
+
+def test_rating_errors(api):
+    status, body = api("PUT", "/api/dishes/seed%3Aguacamole/rating", {"stars": 7})
+    assert status == 400 and body["error"] == "invalid"
+    assert api("PUT", "/api/dishes/seed%3Aguacamole/rating", {})[0] == 400
+    assert api("PUT", "/api/dishes/user%3A99/rating", {"stars": 3})[0] == 404
+    assert api("GET", "/api/dishes?sort=spiciness")[0] == 400

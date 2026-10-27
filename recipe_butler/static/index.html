@@ -21,6 +21,13 @@
 
       <section id="panel-dishes">
         <input type="search" id="filter" placeholder="Filter by name" aria-label="Filter dishes by name">
+        <label class="sort">Sort by
+          <select id="sort">
+            <option value="category">Category</option>
+            <option value="rating">Rating</option>
+            <option value="time">Serve time</option>
+          </select>
+        </label>
         <nav id="dish-list" aria-label="Dishes"></nav>
         <label class="show-hidden"><input type="checkbox" id="show-hidden"> Show hidden</label>
       </section>

@@ -12,6 +12,8 @@ from typing import Literal
 from .model import Dish, Ingredient, ValidationError, dish_from_dict, dish_to_dict, seed_hash
 from .store import Note, Store, utc_now
 
+MAX_STARS = 5
+
 
 class NotFound(KeyError):
     pass
@@ -31,6 +33,17 @@ class DishView:
     original_updated: bool
     changed_ingredients: tuple[bool, ...]
     changed_steps: tuple[bool, ...]
+    rating: int | None = None
+
+
+SortOrder = Literal["category", "rating", "time"]
+
+# Sort keys for the dish list: highest rating first, quickest first; unrated/untimed dishes go last.
+SORT_KEYS = {
+    "category": lambda v: v.dish.category.casefold(),
+    "rating": lambda v: -(v.rating or 0),
+    "time": lambda v: (v.dish.total_minutes is None, v.dish.total_minutes or 0),
+}
 
 
 def _user_num(dish_id: str) -> int | None:
@@ -47,44 +60,50 @@ class Catalog:
 
     # -- reading -------------------------------------------------------------
 
-    def _seed_view(self, seed: Dish, overrides: dict, hidden: set[str]) -> DishView:
+    def _seed_view(self, seed: Dish, overrides: dict, hidden: set[str], ratings: dict[str, int]) -> DishView:
         override = overrides.get(seed.id)
         is_hidden = seed.id in hidden
+        rating = ratings.get(seed.id)
         if override is None:
             return DishView(seed, "seed", False, is_hidden, None, False,
-                            (False,) * len(seed.ingredients), (False,) * len(seed.steps))
+                            (False,) * len(seed.ingredients), (False,) * len(seed.steps), rating)
         dish = replace(seed, ingredients=tuple(Ingredient(i["name"], i.get("amount", "")) for i in override.ingredients),
                        steps=tuple(override.steps))
         return DishView(
             dish, "seed", True, is_hidden, seed, override.seed_hash != seed_hash(seed),
             tuple(i not in seed.ingredients for i in dish.ingredients),
             tuple(s not in seed.steps for s in dish.steps),
+            rating,
         )
 
     @staticmethod
-    def _user_view(num: int, data: dict) -> DishView:
+    def _user_view(num: int, data: dict, ratings: dict[str, int]) -> DishView:
         dish = dish_from_dict(data, f"user:{num}")
         return DishView(dish, "user", False, False, None, False,
-                        (False,) * len(dish.ingredients), (False,) * len(dish.steps))
+                        (False,) * len(dish.ingredients), (False,) * len(dish.steps), ratings.get(dish.id))
 
     def _all_views(self) -> list[DishView]:
-        overrides, hidden = self.store.overrides(), self.store.hidden_ids()
-        views = [self._seed_view(seed, overrides, hidden) for seed in self.seeds.values()]
-        views += [self._user_view(num, data) for num, data in self.store.user_dishes().items()]
+        overrides, hidden, ratings = self.store.overrides(), self.store.hidden_ids(), self.store.ratings()
+        views = [self._seed_view(seed, overrides, hidden, ratings) for seed in self.seeds.values()]
+        views += [self._user_view(num, data, ratings) for num, data in self.store.user_dishes().items()]
         return views
 
-    def list_views(self, include_hidden: bool = False) -> list[DishView]:
+    def list_views(self, include_hidden: bool = False, sort: SortOrder = "category") -> list[DishView]:
+        """Dishes in the requested order; every order breaks ties by name."""
+        if sort not in SORT_KEYS:
+            raise ValidationError([f"Unknown sort order: {sort}."])
         views = [v for v in self._all_views() if include_hidden or not v.hidden]
-        return sorted(views, key=lambda v: (v.dish.category.casefold(), v.dish.name.casefold()))
+        return sorted(views, key=lambda v: (SORT_KEYS[sort](v), v.dish.name.casefold()))
 
     def get_view(self, dish_id: str) -> DishView:
         if dish_id in self.seeds:
-            return self._seed_view(self.seeds[dish_id], self.store.overrides(), self.store.hidden_ids())
+            return self._seed_view(self.seeds[dish_id], self.store.overrides(), self.store.hidden_ids(),
+                                   self.store.ratings())
         num = _user_num(dish_id)
         data = self.store.user_dishes().get(num) if num is not None else None
         if data is None:
             raise NotFound(dish_id)
-        return self._user_view(num, data)
+        return self._user_view(num, data, self.store.ratings())
 
     # -- writing dishes ------------------------------------------------------
 
@@ -144,6 +163,15 @@ class Catalog:
         self._require_seed(dish_id, "hidden")
         self.store.set_hidden(dish_id, hidden)
 
+    # -- ratings -------------------------------------------------------------
+
+    def set_rating(self, dish_id: str, stars: object) -> None:
+        """Rate a dish 1–5 stars; None clears the rating."""
+        self.get_view(dish_id)  # raises NotFound
+        if stars is not None and (isinstance(stars, bool) or not isinstance(stars, int) or not 1 <= stars <= MAX_STARS):
+            raise ValidationError([f"Rating must be a whole number of stars from 1 to {MAX_STARS}."])
+        self.store.set_rating(dish_id, stars)
+
     # -- notes ---------------------------------------------------------------
 
     @staticmethod
@@ -180,7 +208,7 @@ class Catalog:
         return {
             "app": "recipe-butler",
             "exported_at": utc_now(),
-            "user_dishes": [dish_to_dict(self._user_view(num, data).dish)
+            "user_dishes": [dish_to_dict(dish_from_dict(data, f"user:{num}"))
                             for num, data in self.store.user_dishes().items()],
             "personal_versions": [
                 {"seed_id": sid, "ingredients": o.ingredients, "steps": o.steps,
@@ -188,6 +216,7 @@ class Catalog:
                 for sid, o in self.store.overrides().items()
             ],
             "hidden": sorted(self.store.hidden_ids()),
+            "ratings": self.store.ratings(),
             "notes": [{"id": n.id, "dish_id": n.dish_id, "body": n.body,
                        "created_at": n.created_at, "edited_at": n.edited_at} for n in self.store.all_notes()],
         }

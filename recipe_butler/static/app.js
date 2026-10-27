@@ -54,6 +54,9 @@ async function api(method, path, body) {
 
 const dishPath = (id) => "/api/dishes/" + encodeURIComponent(id);
 
+const MAX_STARS = 5;
+const starText = (rating) => "★".repeat(rating || 0) + "☆".repeat(MAX_STARS - (rating || 0));
+
 function formatTime(iso) {
   const date = new Date(iso);
   return isNaN(date) ? iso : date.toLocaleString();
@@ -95,18 +98,33 @@ function showBanner(messages) {
 // -- sidebar: dish list -------------------------------------------------------
 
 async function loadDishes() {
-  const hidden = document.getElementById("show-hidden").checked ? "?hidden=1" : "";
-  state.dishes = await api("GET", "/api/dishes" + hidden);
+  const params = new URLSearchParams({ sort: document.getElementById("sort").value });
+  if (document.getElementById("show-hidden").checked) params.set("hidden", "1");
+  state.dishes = await api("GET", "/api/dishes?" + params);
   renderDishList();
+}
+
+// What the list shows beside each name: its rating or time when sorted by that, nothing otherwise.
+function dishListMeta(dish, sort) {
+  if (sort === "rating") {
+    if (!dish.rating) return h("span", { class: "list-meta", text: "unrated" });
+    return h("span", { class: "list-meta stars", role: "img", text: starText(dish.rating),
+      "aria-label": `${dish.rating} of ${MAX_STARS} stars` });
+  }
+  if (sort === "time") return h("span", { class: "list-meta", text: formatMinutes(dish.total_minutes) || "no time" });
+  return null;
 }
 
 function renderDishList() {
   const filter = document.getElementById("filter").value.trim().toLocaleLowerCase();
+  const sort = document.getElementById("sort").value;
+  // The server returns dishes in the chosen order; only the category order is shown in groups.
   const groups = new Map();
   for (const dish of state.dishes) {
     if (filter && !dish.name.toLocaleLowerCase().includes(filter)) continue;
-    if (!groups.has(dish.category)) groups.set(dish.category, []);
-    groups.get(dish.category).push(dish);
+    const group = sort === "category" ? dish.category : "";
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(dish);
   }
   const list = document.getElementById("dish-list");
   if (groups.size === 0) {
@@ -116,14 +134,15 @@ function renderDishList() {
   list.replaceChildren(
     ...[...groups].map(([category, dishes]) =>
       h("div", { class: "group" },
-        h("h2", { text: category }),
+        category ? h("h2", { text: category }) : null,
         h("ul", {}, dishes.map((dish) =>
           h("li", { class: dish.hidden ? "hidden-dish" : null },
             h("button", {
               type: "button",
               class: "dish-link" + (dish.id === state.selected ? " active" : ""),
               onclick: () => openDish(dish.id),
-            }, dish.name, dish.customized ? h("span", { class: "tag", text: "yours" }) : null),
+            }, dish.name, dish.customized ? h("span", { class: "tag", text: "yours" }) : null,
+            dishListMeta(dish, sort)),
             dish.hidden ? h("button", {
               type: "button", class: "small", text: "Unhide",
               onclick: async () => { await api("POST", dishPath(dish.id) + "/unhide"); await loadDishes(); },
@@ -257,6 +276,7 @@ function renderDish(view, banner) {
     h("article", { class: "dish" },
       h("h2", { text: dish.name }),
       badges,
+      ratingControl(view),
       dish.description ? h("p", { class: "description", text: dish.description }) : null,
       facts ? h("p", { class: "facts", text: facts }) : null,
       actions,
@@ -265,6 +285,38 @@ function renderDish(view, banner) {
         h("section", {}, h("h3", { text: "Steps" }), stepList(showing.steps, changedSteps))),
       renderNotes(view)),
   );
+}
+
+// Five star buttons; picking the current rating again clears it. Only the control re-renders, so a
+// half-typed note on the same page survives a rating change.
+function ratingControl(view) {
+  const control = h("div", { class: "rating", role: "group", "aria-label": "Your rating" });
+  const render = (busy) => {
+    const stars = [];
+    for (let n = 1; n <= MAX_STARS; n++) {
+      const on = view.rating !== null && n <= view.rating;
+      stars.push(h("button", {
+        type: "button", class: "star" + (on ? " on" : ""), text: on ? "★" : "☆", disabled: busy,
+        "aria-label": `${n} star${n === 1 ? "" : "s"}`, "aria-pressed": String(n === view.rating),
+        title: n === view.rating ? "Clear rating" : `Rate ${n} of ${MAX_STARS}`,
+        onclick: () => setRating(n === view.rating ? null : n),
+      }));
+    }
+    control.replaceChildren(...stars,
+      h("span", { class: "hint", text: view.rating ? `${view.rating} of ${MAX_STARS}` : "Not rated" }));
+  };
+  const setRating = async (stars) => {
+    render(true); // one save at a time
+    try {
+      await api("PUT", dishPath(view.dish.id) + "/rating", { stars });
+      view.rating = stars;
+    } finally {
+      render(false);
+    }
+    await loadDishes();
+  };
+  render(false);
+  return control;
 }
 
 // -- notes ------------------------------------------------------------------------
@@ -424,6 +476,7 @@ function start() {
   document.getElementById("tab-search").addEventListener("click", () => selectTab("search"));
   document.getElementById("filter").addEventListener("input", renderDishList);
   document.getElementById("show-hidden").addEventListener("change", loadDishes);
+  document.getElementById("sort").addEventListener("change", loadDishes);
   document.getElementById("search-form").addEventListener("submit", runSearch);
   document.getElementById("new-dish").addEventListener("click", () => {
     state.selected = null;

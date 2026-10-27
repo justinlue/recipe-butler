@@ -1,4 +1,4 @@
-"""SQLite store for everything the user creates: own dishes, personal versions, hidden flags, notes.
+"""SQLite store for everything the user creates: own dishes, personal versions, hidden flags, ratings, notes.
 
 The store holds plain dicts and lists; turning them into Dish objects is the catalog's job.
 """
@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS overrides (
     seed_id TEXT PRIMARY KEY, ingredients TEXT NOT NULL, steps TEXT NOT NULL,
     seed_hash TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS hidden (seed_id TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS ratings (dish_id TEXT PRIMARY KEY, stars INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY, dish_id TEXT NOT NULL, body TEXT NOT NULL,
     created_at TEXT NOT NULL, edited_at TEXT);
@@ -87,6 +88,7 @@ class Store:
             if self._db.execute("DELETE FROM user_dishes WHERE id = ?", (num,)).rowcount == 0:
                 raise KeyError(num)
             self._db.execute("DELETE FROM notes WHERE dish_id = ?", (f"user:{num}",))
+            self._db.execute("DELETE FROM ratings WHERE dish_id = ?", (f"user:{num}",))
             self._db.commit()
 
     def user_dishes(self) -> dict[int, dict]:
@@ -117,6 +119,17 @@ class Store:
 
     def hidden_ids(self) -> set[str]:
         return {sid for (sid,) in self._read("SELECT seed_id FROM hidden")}
+
+    # -- ratings -------------------------------------------------------------
+
+    def set_rating(self, dish_id: str, stars: int | None) -> None:
+        if stars is None:
+            self._write("DELETE FROM ratings WHERE dish_id = ?", (dish_id,))
+        else:
+            self._write("INSERT OR REPLACE INTO ratings (dish_id, stars) VALUES (?, ?)", (dish_id, stars))
+
+    def ratings(self) -> dict[str, int]:
+        return dict(self._read("SELECT dish_id, stars FROM ratings ORDER BY dish_id"))
 
     # -- notes ---------------------------------------------------------------
 

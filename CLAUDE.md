@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Offline recipe app: browse dishes, search by one or more ingredients, keep notes, and customize built-in recipes as revertible personal versions. Single user, single PC, no network.
+Offline recipe app: browse dishes, search by one or more ingredients, rate dishes 1–5 stars, keep notes, and customize built-in recipes as revertible personal versions. Single user, single PC, no network.
 
 ## Commands
 
@@ -15,7 +15,7 @@ No install step: runtime is stdlib only (Python 3.11+); pytest is the only dev d
 ## Data
 
 - **Seed recipes** — `recipe_butler/seeds/<stem>.json`, read-only, one dish per file, id `seed:<stem>`. A bad seed file aborts startup naming the file (by design; never skip it silently).
-- **User data** — one SQLite file, `data/user.db` (gitignored); `RECIPE_BUTLER_DATA` overrides the directory. Holds own dishes (`user:<n>`), personal versions of seeds (full copies of ingredients + steps, plus the seed's hash at save time), hidden seed ids, and notes.
+- **User data** — one SQLite file, `data/user.db` (gitignored); `RECIPE_BUTLER_DATA` overrides the directory. Holds own dishes (`user:<n>`), personal versions of seeds (full copies of ingredients + steps, plus the seed's hash at save time), hidden seed ids, ratings (1–5 stars, any dish), and notes.
 - `data/server.lock` records the running server's port; a second launch pings it and opens the browser there instead of starting another server. A stale lock is ignored.
 
 ## Module map
@@ -23,7 +23,7 @@ No install step: runtime is stdlib only (Python 3.11+); pytest is the only dev d
 - `model.py` — `Dish`/`Ingredient`, `dish_from_dict` (normalizes + validates, reports every problem), `seed_hash`
 - `seeds.py` — `load_seeds`
 - `store.py` — `Store`: SQLite access, plain dicts only, one lock around the connection
-- `catalog.py` — `Catalog`: merges seeds with the store into `DishView`s (effective dish, original, changed markers, "original updated" flag); create/save/delete/revert/hide, notes, export
+- `catalog.py` — `Catalog`: merges seeds with the store into `DishView`s (effective dish, original, changed markers, "original updated" flag); create/save/delete/revert/hide, ratings, list order (`category` | `rating` | `time`), notes, export
 - `search.py` — `parse_terms`, `search`: case-insensitive substring on ingredient names, terms ANDed, hidden dishes skipped, effective version searched
 - `server.py` — `make_server`: threaded JSON API under `/api/*` plus static files; error bodies are `{"error", "messages"}`
 - `launcher.py` — `main`: lock file, port choice, browser

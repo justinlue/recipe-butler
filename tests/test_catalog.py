@@ -202,3 +202,68 @@ def test_orphaned_seed_rows_do_not_break_listing_and_are_exported(store, seeds):
     assert exported["personal_versions"][0]["seed_id"] == "seed:gone"
     assert exported["hidden"] == ["seed:gone"]
     assert exported["notes"][0]["body"] == "remember this"
+
+
+def test_rating_a_dish_shows_on_its_view_and_can_be_cleared(cat):
+    user_id, _ = cat.create(USER_DISH)
+    assert cat.get_view("seed:a").rating is None
+    cat.set_rating("seed:a", 4)
+    cat.set_rating(user_id, 5)
+    assert cat.get_view("seed:a").rating == 4 and cat.get_view(user_id).rating == 5
+    cat.set_rating("seed:a", None)
+    assert cat.get_view("seed:a").rating is None
+
+
+@pytest.mark.parametrize("stars", [0, 6, 3.5, "4", True])
+def test_rating_must_be_whole_stars_from_one_to_five(cat, stars):
+    with pytest.raises(ValidationError) as e:
+        cat.set_rating("seed:a", stars)
+    assert e.value.messages == ["Rating must be a whole number of stars from 1 to 5."]
+    assert cat.get_view("seed:a").rating is None
+
+
+def test_rating_an_unknown_dish_is_not_found(cat):
+    with pytest.raises(NotFound):
+        cat.set_rating("user:99", 3)
+
+
+def test_sort_by_rating_puts_highest_first_and_unrated_last(cat):
+    user_id, _ = cat.create(USER_DISH)  # Gamma
+    cat.set_rating("seed:b", 2)
+    cat.set_rating(user_id, 5)
+    # Alpha is unrated; ties and unrated dishes fall back to name order.
+    assert [v.dish.name for v in cat.list_views(sort="rating")] == ["Gamma", "Beta", "Alpha"]
+    cat.set_rating("seed:a", 5)
+    assert [v.dish.name for v in cat.list_views(sort="rating")] == ["Alpha", "Gamma", "Beta"]
+
+
+def test_sort_by_time_puts_quickest_first_and_untimed_last(store):
+    seeds = {
+        "seed:slow": dish_from_dict({"name": "Slow", "total_minutes": 90, "ingredients": A_INGREDIENTS,
+                                     "steps": A_STEPS}, "seed:slow"),
+        "seed:quick": dish_from_dict({"name": "Quick", "total_minutes": 10, "ingredients": A_INGREDIENTS,
+                                      "steps": A_STEPS}, "seed:quick"),
+        "seed:raw": dish_from_dict({"name": "Raw", "total_minutes": 0, "ingredients": A_INGREDIENTS,
+                                    "steps": A_STEPS}, "seed:raw"),
+    }
+    cat = Catalog(seeds, store)
+    cat.create({**USER_DISH, "name": "Also quick", "total_minutes": 10})
+    cat.create({**USER_DISH, "name": "Untimed"})
+    assert [v.dish.name for v in cat.list_views(sort="time")] == ["Raw", "Also quick", "Quick", "Slow", "Untimed"]
+
+
+def test_unknown_sort_is_rejected(cat):
+    with pytest.raises(ValidationError):
+        cat.list_views(sort="spiciness")
+
+
+def test_ratings_are_exported_and_deleted_with_their_own_dish(cat):
+    user_id, _ = cat.create(USER_DISH)
+    cat.set_rating("seed:a", 3)
+    cat.set_rating(user_id, 4)
+    assert cat.export()["ratings"] == {"seed:a": 3, user_id: 4}
+    cat.delete(user_id)
+    assert cat.export()["ratings"] == {"seed:a": 3}
+    # A later dish reusing the number must not inherit the old rating.
+    reused_id, _ = cat.create(USER_DISH)
+    assert cat.get_view(reused_id).rating is None

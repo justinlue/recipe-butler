@@ -39,6 +39,7 @@ def _view_json(view: DishView, notes: list[Note]) -> dict:
         "source": view.source,
         "customized": view.customized,
         "hidden": view.hidden,
+        "rating": view.rating,
         "original": dish_to_dict(view.original) if view.original else None,
         "original_updated": view.original_updated,
         "changed_ingredients": list(view.changed_ingredients),
@@ -54,7 +55,8 @@ def _note_json(note: Note) -> dict:
 
 def _summary_json(view: DishView) -> dict:
     return {"id": view.dish.id, "name": view.dish.name, "category": view.dish.category,
-            "source": view.source, "customized": view.customized, "hidden": view.hidden}
+            "source": view.source, "customized": view.customized, "hidden": view.hidden,
+            "rating": view.rating, "total_minutes": view.dish.total_minutes}
 
 
 def _note_id(segment: str) -> int:
@@ -156,7 +158,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"app": "recipe-butler"})
             case ("GET", ["dishes"]):
                 include_hidden = query.get("hidden", ["0"])[0] == "1"
-                self._json(200, [_summary_json(v) for v in cat.list_views(include_hidden)])
+                sort = query.get("sort", ["category"])[0]
+                self._json(200, [_summary_json(v) for v in cat.list_views(include_hidden, sort)])
             case ("POST", ["dishes"]):
                 dish_id, warnings = cat.create(self._body())
                 self._json(201, {"id": dish_id, "warnings": warnings})
@@ -172,6 +175,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {})
             case ("POST", ["dishes", dish_id, ("hide" | "unhide") as action]):
                 cat.set_hidden(dish_id, action == "hide")
+                self._json(200, {})
+            case ("PUT", ["dishes", dish_id, "rating"]):
+                body = self._body()
+                if "stars" not in body:
+                    raise BadRequest('Send {"stars": 1-5}, or {"stars": null} to clear the rating.')
+                cat.set_rating(dish_id, body["stars"])
                 self._json(200, {})
             case ("POST", ["dishes", dish_id, "notes"]):
                 self._json(201, _note_json(cat.add_note(dish_id, self._body().get("body"))))
