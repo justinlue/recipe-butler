@@ -6,13 +6,20 @@ seed's other fields); the original stays available for comparison and revert.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass, replace
 from typing import Literal
 
 from .model import Dish, Ingredient, ValidationError, dish_from_dict, dish_to_dict, seed_hash
+from .notes import image_refs, parse_note
 from .store import Note, Store, utc_now
 
 MAX_STARS = 5
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
+# Raster formats only: an SVG served from this origin could run script.
+IMAGE_SIGNATURES = {b"\x89PNG\r\n\x1a\n": "image/png", b"\xff\xd8\xff": "image/jpeg",
+                    b"GIF87a": "image/gif", b"GIF89a": "image/gif"}
 
 
 class NotFound(KeyError):
@@ -51,6 +58,10 @@ def _user_num(dish_id: str) -> int | None:
     if prefix == "user" and rest.isdigit():
         return int(rest)
     return None
+
+
+def _embedded_images(notes: list[Note]) -> set[int]:
+    return set().union(*(image_refs(n.body) for n in notes))
 
 
 class Catalog:
@@ -153,7 +164,9 @@ class Catalog:
         if dish_id in self.seeds:
             raise CatalogError("Seed recipes can be hidden, not deleted.")
         self.get_view(dish_id)
+        embedded = _embedded_images(self.store.notes_for(dish_id))
         self.store.delete_user_dish(_user_num(dish_id))
+        self._prune_images(embedded)
 
     def revert(self, dish_id: str) -> None:
         self._require_seed(dish_id, "reverted")
@@ -180,6 +193,16 @@ class Catalog:
             raise ValidationError(["Note is empty."])
         return body.strip()
 
+    def note_parts(self, body: str) -> list[dict]:
+        """A note body split into text, dish links and images (see notes.parse_note).
+
+        Links resolve by name against every dish, hidden ones included; a built-in recipe wins a shared name.
+        """
+        dish_ids: dict[str, str] = {}
+        for view in self._all_views():  # seeds come first
+            dish_ids.setdefault(view.dish.name.casefold(), view.dish.id)
+        return parse_note(body, dish_ids, self.store.image_ids())
+
     def notes(self, dish_id: str) -> list[Note]:
         self.get_view(dish_id)
         return self.store.notes_for(dish_id)
@@ -191,15 +214,52 @@ class Catalog:
     def update_note(self, note_id: int, body: object) -> Note:
         text = self._note_body(body)
         try:
-            return self.store.update_note(note_id, text)
+            old = self.store.note(note_id)
+            note = self.store.update_note(note_id, text)
         except KeyError:
             raise NotFound(note_id) from None
+        self._prune_images(image_refs(old.body))
+        return note
 
     def delete_note(self, note_id: int) -> None:
         try:
+            old = self.store.note(note_id)
             self.store.delete_note(note_id)
         except KeyError:
             raise NotFound(note_id) from None
+        self._prune_images(image_refs(old.body))
+
+    # -- images --------------------------------------------------------------
+
+    @staticmethod
+    def _image_type(data: bytes) -> str:
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return "image/webp"
+        for signature, mime in IMAGE_SIGNATURES.items():
+            if data.startswith(signature):
+                return mime
+        raise ValidationError(["Images must be PNG, JPEG, GIF or WebP."])
+
+    def add_image(self, data: bytes) -> int:
+        if len(data) > MAX_IMAGE_BYTES:
+            raise ValidationError([f"Images can be at most {MAX_IMAGE_BYTES // (1024 * 1024)} MB."])
+        return self.store.add_image(self._image_type(data), data)
+
+    def image(self, image_id: int) -> tuple[str, bytes]:
+        """(content type, bytes) of a stored image."""
+        try:
+            return self.store.image(image_id)
+        except KeyError:
+            raise NotFound(image_id) from None
+
+    def _prune_images(self, candidates: set[int]) -> None:
+        """Delete those of the candidate images that no note embeds any more.
+
+        Uploads not yet saved into a note are never candidates, so a note being written keeps its images.
+        """
+        if candidates:
+            in_use = _embedded_images(self.store.all_notes())
+            self.store.delete_images(candidates - in_use)
 
     # -- export --------------------------------------------------------------
 
@@ -219,4 +279,6 @@ class Catalog:
             "ratings": self.store.ratings(),
             "notes": [{"id": n.id, "dish_id": n.dish_id, "body": n.body,
                        "created_at": n.created_at, "edited_at": n.edited_at} for n in self.store.all_notes()],
+            "images": [{"id": i, "type": mime, "data_base64": base64.b64encode(data).decode("ascii"),
+                        "created_at": at} for i, mime, data, at in self.store.all_images()],
         }

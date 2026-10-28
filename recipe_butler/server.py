@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import sys
 import traceback
@@ -33,7 +35,7 @@ class Refused(Exception):
         self.status = status
 
 
-def _view_json(view: DishView, notes: list[Note]) -> dict:
+def _view_json(view: DishView, notes: list[Note], catalog: Catalog) -> dict:
     return {
         "dish": dish_to_dict(view.dish),
         "source": view.source,
@@ -44,13 +46,13 @@ def _view_json(view: DishView, notes: list[Note]) -> dict:
         "original_updated": view.original_updated,
         "changed_ingredients": list(view.changed_ingredients),
         "changed_steps": list(view.changed_steps),
-        "notes": [_note_json(n) for n in notes],
+        "notes": [_note_json(n, catalog) for n in notes],
     }
 
 
-def _note_json(note: Note) -> dict:
+def _note_json(note: Note, catalog: Catalog) -> dict:
     return {"id": note.id, "dish_id": note.dish_id, "body": note.body,
-            "created_at": note.created_at, "edited_at": note.edited_at}
+            "created_at": note.created_at, "edited_at": note.edited_at, "parts": catalog.note_parts(note.body)}
 
 
 def _summary_json(view: DishView) -> dict:
@@ -59,8 +61,21 @@ def _summary_json(view: DishView) -> dict:
             "rating": view.rating, "total_minutes": view.dish.total_minutes}
 
 
-def _note_id(segment: str) -> int:
-    if not segment.isdigit():
+def _image_bytes(body: dict) -> bytes:
+    value = body.get("data_base64")
+    try:
+        if not isinstance(value, str):
+            raise ValueError
+        return base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error):
+        raise BadRequest('Send {"data_base64": "<the image file, base64-encoded>"}.') from None
+
+
+SQLITE_MAX_ROWID = 2**63 - 1
+
+
+def _row_id(segment: str) -> int:
+    if not segment.isdigit() or int(segment) > SQLITE_MAX_ROWID:
         raise NotFound(segment)
     return int(segment)
 
@@ -164,7 +179,8 @@ class Handler(BaseHTTPRequestHandler):
                 dish_id, warnings = cat.create(self._body())
                 self._json(201, {"id": dish_id, "warnings": warnings})
             case ("GET", ["dishes", dish_id]):
-                self._json(200, _view_json(cat.get_view(dish_id), cat.notes(dish_id)))
+                notes = cat.notes(dish_id)
+                self._json(200, _view_json(cat.get_view(dish_id), notes, cat))
             case ("PUT", ["dishes", dish_id]):
                 self._json(200, {"warnings": cat.save(dish_id, self._body())})
             case ("DELETE", ["dishes", dish_id]):
@@ -183,12 +199,17 @@ class Handler(BaseHTTPRequestHandler):
                 cat.set_rating(dish_id, body["stars"])
                 self._json(200, {})
             case ("POST", ["dishes", dish_id, "notes"]):
-                self._json(201, _note_json(cat.add_note(dish_id, self._body().get("body"))))
+                self._json(201, _note_json(cat.add_note(dish_id, self._body().get("body")), cat))
             case ("PUT", ["notes", note_id]):
-                self._json(200, _note_json(cat.update_note(_note_id(note_id), self._body().get("body"))))
+                self._json(200, _note_json(cat.update_note(_row_id(note_id), self._body().get("body")), cat))
             case ("DELETE", ["notes", note_id]):
-                cat.delete_note(_note_id(note_id))
+                cat.delete_note(_row_id(note_id))
                 self._json(200, {})
+            case ("POST", ["images"]):
+                self._json(201, {"id": cat.add_image(_image_bytes(self._body()))})
+            case ("GET", ["images", image_id]):
+                content_type, data = cat.image(_row_id(image_id))
+                self._send(200, data, content_type, {"X-Content-Type-Options": "nosniff"})
             case ("GET", ["search"]):
                 terms = parse_terms(query.get("q", [""])[0])
                 hits = search(cat.list_views(), terms)

@@ -321,10 +321,104 @@ function ratingControl(view) {
 
 // -- notes ------------------------------------------------------------------------
 
-function renderNotes(view) {
-  const box = h("textarea", { rows: 3, placeholder: "Add a note: what worked, what to change next time…",
-    "aria-label": "New note" });
+// The server splits each note into parts: plain text, [[Dish name]] links and ![[image:<id>]] images.
+function noteBody(parts) {
+  return h("div", { class: "note-body" }, parts.map((part) => {
+    if (part.type === "link") {
+      if (part.dish_id === null) {
+        return h("span", { class: "broken-link", text: part.text, title: `No dish is named "${part.text}"` });
+      }
+      return h("button", { type: "button", class: "note-link", text: part.text, title: "Open " + part.text,
+        onclick: () => openDish(part.dish_id) });
+    }
+    if (part.type === "image") {
+      if (!part.found) return h("span", { class: "broken-link", text: "(image missing)" });
+      const src = "/api/images/" + part.image_id;
+      return h("a", { class: "note-image", href: src, target: "_blank", title: "Open full size" },
+        h("img", { src, alt: "Image in note", loading: "lazy" }));
+    }
+    return part.text;
+  }));
+}
+
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.slice(reader.result.indexOf(",") + 1)); // drop "data:…;base64,"
+    reader.onerror = () => reject(apiError([`Could not read "${file.name}".`]));
+    reader.readAsDataURL(file);
+  });
+}
+
+// A note text box with helpers that insert [[Dish name]] links and upload images (button, paste or drop).
+function noteEditor(attrs, value) {
+  const box = h("textarea", { rows: 3, ...attrs });
+  box.value = value || "";
   const errors = h("div");
+  const insert = (text) => {
+    box.setRangeText(text, box.selectionStart, box.selectionEnd, "end");
+    box.focus();
+  };
+
+  const picker = h("select", { "aria-label": "Link a dish", onchange: () => {
+    if (picker.value) insert(`[[${picker.value}]]`);
+    picker.value = "";
+  } }, h("option", { value: "", text: "Link a dish…" }));
+  // Links reach hidden dishes too, so offer them; a shared name is one link (it opens the built-in recipe),
+  // and a name with brackets cannot be written as a link.
+  const offer = (dishes) => {
+    const names = new Map();
+    for (const { name } of dishes) {
+      if (!/[[\]]/.test(name) && !names.has(name.toLocaleLowerCase())) names.set(name.toLocaleLowerCase(), name);
+    }
+    picker.append(...[...names.values()].sort((a, b) => a.localeCompare(b))
+      .map((name) => h("option", { value: name, text: name })));
+  };
+  api("GET", "/api/dishes?hidden=1").then(offer, () => offer(state.dishes));
+
+  const imageButton = h("button", { type: "button", class: "small", text: "Add image",
+    onclick: () => fileInput.click() });
+  const addImages = async (files) => {
+    imageButton.disabled = true;
+    imageButton.textContent = "Uploading…";
+    try {
+      for (const file of files) {
+        const { id } = await api("POST", "/api/images", { data_base64: await readAsBase64(file) });
+        const lineStart = box.selectionStart === 0 || box.value[box.selectionStart - 1] === "\n";
+        insert(`${lineStart ? "" : "\n"}![[image:${id}]]\n`); // each image on a line of its own
+      }
+      errors.replaceChildren();
+    } catch (error) {
+      errors.replaceChildren(errorBox(error.messages || [error.message]));
+    } finally {
+      imageButton.disabled = false;
+      imageButton.textContent = "Add image";
+    }
+  };
+  const fileInput = h("input", { type: "file", accept: "image/png,image/jpeg,image/gif,image/webp", multiple: true,
+    hidden: true, onchange: () => { addImages([...fileInput.files]); fileInput.value = ""; } });
+  box.addEventListener("paste", (event) => {
+    // Text copied with pictures (from a web page or document) pastes as text; a lone picture uploads.
+    const files = [...event.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0 || event.clipboardData.getData("text/plain")) return;
+    event.preventDefault();
+    addImages(files);
+  });
+  box.addEventListener("drop", (event) => {
+    const files = [...event.dataTransfer.files];
+    if (files.length === 0) return;
+    event.preventDefault(); // the browser would otherwise open the file in place of the page
+    addImages(files); // the server names any file that is not a supported image
+  });
+
+  const tools = h("div", { class: "note-tools" }, picker, imageButton, fileInput,
+    h("span", { class: "hint", text: "or type [[Dish name]]; paste or drop images into the box" }));
+  return { box, errors, tools };
+}
+
+function renderNotes(view) {
+  const { box, errors, tools } = noteEditor({ placeholder: "Add a note: what worked, what to change next time…",
+    "aria-label": "New note" });
   return h("section", { class: "notes" },
     h("h3", { text: "Notes" }),
     view.notes.length === 0 ? h("p", { class: "hint", text: "No notes yet." }) : null,
@@ -337,7 +431,7 @@ function renderNotes(view) {
       } catch (error) {
         errors.replaceChildren(errorBox(error.messages || [error.message]));
       }
-    } }, errors, box, h("button", { type: "submit", text: "Add note" })),
+    } }, errors, box, tools, h("button", { type: "submit", text: "Add note" })),
   );
 }
 
@@ -345,7 +439,7 @@ function noteItem(view, note) {
   const stamp = "Added " + formatTime(note.created_at) + (note.edited_at ? " · edited " + formatTime(note.edited_at) : "");
   const item = h("li", { class: "note" });
   const showNote = () => item.replaceChildren(
-    h("p", { class: "note-body", text: note.body }),
+    noteBody(note.parts),
     h("div", { class: "note-meta" },
       h("span", { text: stamp }),
       h("button", { type: "button", class: "small", text: "Edit", onclick: editNote }),
@@ -355,9 +449,7 @@ function noteItem(view, note) {
         await openDish(view.dish.id);
       } })));
   const editNote = () => {
-    const box = h("textarea", { rows: 3, "aria-label": "Edit note" });
-    box.value = note.body;
-    const errors = h("div");
+    const { box, errors, tools } = noteEditor({ "aria-label": "Edit note" }, note.body);
     item.replaceChildren(h("form", { class: "note-form", onsubmit: async (event) => {
       event.preventDefault();
       try {
@@ -366,7 +458,7 @@ function noteItem(view, note) {
       } catch (error) {
         errors.replaceChildren(errorBox(error.messages || [error.message]));
       }
-    } }, errors, box,
+    } }, errors, box, tools,
       h("div", { class: "actions" },
         h("button", { type: "submit", class: "primary", text: "Save" }),
         h("button", { type: "button", text: "Cancel", onclick: showNote }))));

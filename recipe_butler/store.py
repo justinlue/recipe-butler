@@ -1,4 +1,5 @@
-"""SQLite store for everything the user creates: own dishes, personal versions, hidden flags, ratings, notes.
+"""SQLite store for everything the user creates: own dishes, personal versions, hidden flags, ratings, notes,
+and the images embedded in notes.
 
 The store holds plain dicts and lists; turning them into Dish objects is the catalog's job.
 """
@@ -23,6 +24,8 @@ CREATE TABLE IF NOT EXISTS ratings (dish_id TEXT PRIMARY KEY, stars INTEGER NOT 
 CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY, dish_id TEXT NOT NULL, body TEXT NOT NULL,
     created_at TEXT NOT NULL, edited_at TEXT);
+CREATE TABLE IF NOT EXISTS images (
+    id INTEGER PRIMARY KEY, mime TEXT NOT NULL, data BLOB NOT NULL, created_at TEXT NOT NULL);
 """
 
 
@@ -133,7 +136,7 @@ class Store:
 
     # -- notes ---------------------------------------------------------------
 
-    def _note(self, note_id: int) -> Note:
+    def note(self, note_id: int) -> Note:
         rows = self._read("SELECT id, dish_id, body, created_at, edited_at FROM notes WHERE id = ?", (note_id,))
         if not rows:
             raise KeyError(note_id)
@@ -142,13 +145,13 @@ class Store:
     def add_note(self, dish_id: str, body: str) -> Note:
         cursor = self._write("INSERT INTO notes (dish_id, body, created_at) VALUES (?, ?, ?)",
                              (dish_id, body, self._clock()))
-        return self._note(cursor.lastrowid)
+        return self.note(cursor.lastrowid)
 
     def update_note(self, note_id: int, body: str) -> Note:
         if self._write("UPDATE notes SET body = ?, edited_at = ? WHERE id = ?",
                        (body, self._clock(), note_id)).rowcount == 0:
             raise KeyError(note_id)
-        return self._note(note_id)
+        return self.note(note_id)
 
     def delete_note(self, note_id: int) -> None:
         if self._write("DELETE FROM notes WHERE id = ?", (note_id,)).rowcount == 0:
@@ -161,3 +164,26 @@ class Store:
 
     def all_notes(self) -> list[Note]:
         return [Note(*row) for row in self._read("SELECT id, dish_id, body, created_at, edited_at FROM notes ORDER BY id")]
+
+    # -- images --------------------------------------------------------------
+
+    def add_image(self, mime: str, data: bytes) -> int:
+        return self._write("INSERT INTO images (mime, data, created_at) VALUES (?, ?, ?)",
+                           (mime, data, self._clock())).lastrowid
+
+    def image(self, image_id: int) -> tuple[str, bytes]:
+        rows = self._read("SELECT mime, data FROM images WHERE id = ?", (image_id,))
+        if not rows:
+            raise KeyError(image_id)
+        return rows[0]
+
+    def delete_images(self, image_ids: set[int]) -> None:
+        with self._lock:
+            self._db.executemany("DELETE FROM images WHERE id = ?", [(i,) for i in image_ids])
+            self._db.commit()
+
+    def image_ids(self) -> set[int]:
+        return {i for (i,) in self._read("SELECT id FROM images")}
+
+    def all_images(self) -> list[tuple[int, str, bytes, str]]:
+        return self._read("SELECT id, mime, data, created_at FROM images ORDER BY id")

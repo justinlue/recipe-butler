@@ -196,3 +196,41 @@ def test_rating_errors(api):
     assert api("PUT", "/api/dishes/seed%3Aguacamole/rating", {})[0] == 400
     assert api("PUT", "/api/dishes/user%3A99/rating", {"stars": 3})[0] == 404
     assert api("GET", "/api/dishes?sort=spiciness")[0] == 400
+
+
+PNG_BASE64 = "iVBORw0KGgoAAAAAAAAAAAAAAAAAAAAA"  # PNG signature + 16 zero bytes
+
+
+def test_uploaded_image_is_served_with_its_type(api, api_server):
+    status, created = api("POST", "/api/images", {"data_base64": PNG_BASE64})
+    assert status == 201
+    status, headers, payload = request(api_server.server_address[1], "GET", f"/api/images/{created['id']}")
+    assert status == 200 and headers["Content-Type"] == "image/png" and payload.startswith(b"\x89PNG")
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert api("GET", "/api/images/999")[0] == 404
+
+
+@pytest.mark.parametrize("body", [{}, {"data_base64": "not base64!"}, {"data_base64": 5},
+                                  {"data_base64": "PHN2Zz4="}])  # last one is "<svg>"
+def test_bad_image_uploads_are_400(api, body):
+    status, err = api("POST", "/api/images", body)
+    assert status == 400 and err["messages"]
+
+
+def test_dish_view_returns_notes_split_into_links_and_images(api):
+    _, created = api("POST", "/api/images", {"data_base64": PNG_BASE64})
+    body = f"Pairs with [[Greek Salad]]\n![[image:{created['id']}]]"
+    api("POST", "/api/dishes/seed%3Ashakshuka/notes", {"body": body})
+    _, view = api("GET", "/api/dishes/seed%3Ashakshuka")
+    assert view["notes"][0]["body"] == body
+    assert view["notes"][0]["parts"] == [
+        {"type": "text", "text": "Pairs with "},
+        {"type": "link", "text": "Greek Salad", "dish_id": "seed:greek-salad"},
+        {"type": "text", "text": "\n"},
+        {"type": "image", "image_id": created["id"], "found": True},
+    ]
+
+
+@pytest.mark.parametrize("path", ["/api/images/99999999999999999999", "/api/images/abc"])
+def test_out_of_range_image_ids_are_404(api, path):
+    assert api("GET", path)[0] == 404

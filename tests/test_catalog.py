@@ -267,3 +267,78 @@ def test_ratings_are_exported_and_deleted_with_their_own_dish(cat):
     # A later dish reusing the number must not inherit the old rating.
     reused_id, _ = cat.create(USER_DISH)
     assert cat.get_view(reused_id).rating is None
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 16
+
+
+def test_images_are_stored_with_their_sniffed_type(cat):
+    png_id, jpeg_id = cat.add_image(PNG), cat.add_image(JPEG)
+    assert cat.image(png_id) == ("image/png", PNG)
+    assert cat.image(jpeg_id) == ("image/jpeg", JPEG)
+    with pytest.raises(NotFound):
+        cat.image(999)
+
+
+@pytest.mark.parametrize("data", [b"", b"<svg onload=alert(1)>", b"plain text"])
+def test_only_raster_images_are_accepted(cat, data):
+    with pytest.raises(ValidationError) as e:
+        cat.add_image(data)
+    assert e.value.messages == ["Images must be PNG, JPEG, GIF or WebP."]
+
+
+def test_images_over_ten_megabytes_are_rejected(cat):
+    cat.add_image(PNG.ljust(10 * 1024 * 1024, b"\x00"))
+    with pytest.raises(ValidationError) as e:
+        cat.add_image(PNG.ljust(10 * 1024 * 1024 + 1, b"\x00"))
+    assert e.value.messages == ["Images can be at most 10 MB."]
+
+
+def test_image_is_removed_once_no_note_embeds_it(cat):
+    kept, dropped, shared = cat.add_image(PNG), cat.add_image(PNG), cat.add_image(PNG)
+    first = cat.add_note("seed:a", f"![[image:{kept}]] ![[image:{dropped}]] ![[image:{shared}]]")
+    cat.add_note("seed:b", f"also ![[image:{shared}]]")
+    cat.update_note(first.id, f"![[image:{kept}]]")
+    with pytest.raises(NotFound):
+        cat.image(dropped)
+    cat.delete_note(first.id)
+    with pytest.raises(NotFound):
+        cat.image(kept)
+    assert cat.image(shared)[0] == "image/png"
+
+
+def test_deleting_a_dish_removes_images_only_its_notes_embedded(cat):
+    dish_id, _ = cat.create(USER_DISH)
+    image_id = cat.add_image(PNG)
+    cat.add_note(dish_id, f"![[image:{image_id}]]")
+    cat.delete(dish_id)
+    with pytest.raises(NotFound):
+        cat.image(image_id)
+
+
+def test_note_parts_link_to_any_dish_by_name_including_hidden_ones(cat):
+    gamma_id, _ = cat.create(USER_DISH)
+    cat.set_hidden("seed:b", True)
+    image_id = cat.add_image(PNG)
+    assert cat.note_parts(f"[[beta]], [[Gamma]], [[Delta]] ![[image:{image_id}]]") == [
+        {"type": "link", "text": "beta", "dish_id": "seed:b"},
+        {"type": "text", "text": ", "},
+        {"type": "link", "text": "Gamma", "dish_id": gamma_id},
+        {"type": "text", "text": ", "},
+        {"type": "link", "text": "Delta", "dish_id": None},
+        {"type": "text", "text": " "},
+        {"type": "image", "image_id": image_id, "found": True},
+    ]
+
+
+def test_note_link_to_a_shared_name_goes_to_the_built_in_recipe(cat):
+    cat.create({**USER_DISH, "name": "Alpha"})
+    assert cat.note_parts("[[Alpha]]")[0]["dish_id"] == "seed:a"
+
+
+def test_export_includes_images(cat):
+    image_id = cat.add_image(PNG)
+    [exported] = cat.export()["images"]
+    assert exported["id"] == image_id and exported["type"] == "image/png" and exported["created_at"]
+    assert exported["data_base64"] == "iVBORw0KGgoAAAAAAAAAAAAAAAAAAAAA"
